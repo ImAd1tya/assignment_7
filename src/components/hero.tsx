@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import heroImg from "@/assets/bazar-hero.png";
 
 function banglaDate(d = new Date()) {
@@ -17,9 +17,16 @@ function banglaDate(d = new Date()) {
   return `${p.weekday}, ${p.day} ${p.month}, ${p.year}`;
 }
 
+const subscribeToDate = () => () => {};
+const getDateSnapshot = () => banglaDate();
+const getServerDateSnapshot = () => "";
+
 export default function Hero() {
-  const [date, setDate] = useState("");
-  useEffect(() => setDate(banglaDate()), []);
+  const date = useSyncExternalStore(
+    subscribeToDate,
+    getDateSnapshot,
+    getServerDateSnapshot,
+  );
 
   return (
     <section
@@ -28,9 +35,7 @@ export default function Hero() {
     >
       <div className="overflow-hidden rounded-3xl border border-[#e1e8e1] bg-[#fafcfa]">
         <div className="grid items-center gap-6 px-4 py-8 sm:px-8 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:gap-6 md:py-10">
-          {/* Text */}
           <div className="flex flex-col items-start gap-2">
-            {/* Eyebrow */}
             <span className="inline-flex min-h-7 items-center rounded-full bg-[#05893e]/10 px-3 py-1 text-sm font-medium leading-5 text-[#05893e]">
               {date || "\u00A0"}
             </span>

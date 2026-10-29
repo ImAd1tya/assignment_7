@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 
 const API = "https://api.api-store.workers.dev/api/bazardor";
@@ -49,6 +50,10 @@ function banglaDate(d = new Date()) {
   return `${p.weekday}, ${p.day} ${p.month}, ${p.year}`;
 }
 
+const subscribeToDate = () => () => {};
+const getDateSnapshot = () => banglaDate();
+const getServerDateSnapshot = () => "";
+
 function useBazardorData() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -87,8 +92,11 @@ export default function Navbar({
   const pathname = usePathname();
   const { categories, products, error } = useBazardorData();
 
-  const [date, setDate] = useState("");
-  useEffect(() => setDate(banglaDate()), []);
+  const date = useSyncExternalStore(
+    subscribeToDate,
+    getDateSnapshot,
+    getServerDateSnapshot,
+  );
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -142,8 +150,14 @@ export default function Navbar({
                   className="flex h-10 items-center gap-2 rounded-lg px-[17px] hover:bg-[#f0f5f0]"
                 >
                   {user.avatarUrl ? (
-             
-                    <img src={user.avatarUrl} alt="" className="h-9 w-9 rounded-[10.5px] object-cover" />
+                    <Image
+                      src={user.avatarUrl}
+                      alt=""
+                      width={36}
+                      height={36}
+                      unoptimized
+                      className="h-9 w-9 rounded-[10.5px] object-cover"
+                    />
                   ) : (
                     <span className="flex h-9 w-9 items-center justify-center rounded-[10.5px] bg-[#05893e] text-sm font-semibold text-[#f3fbf4]">
                       {user.name.charAt(0).toUpperCase()}
