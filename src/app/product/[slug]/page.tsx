@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProducts } from "@/lib/api";
 import { toBn, UNIT_BN } from "@/lib/format";
+import PriceSummary from "@/components/product/PriceSummary";
 import type { Product } from "@/types/bazardor";
 
 export async function generateStaticParams() {
@@ -57,27 +58,26 @@ async function ProductDetailsContent({
             {product.image}
           </span>
           <div>
-            <p className="text-sm text-[#1d271f]/70">{product.categoryNameBn}</p>
             <h1 className="text-2xl font-bold text-[#1d271f] sm:text-3xl">
               {product.nameBn}
             </h1>
-            <p className="mt-1 text-sm text-[#1d271f]/70">
-              প্রতি {UNIT_BN[product.unit] ?? product.unit}
+            <p className="mt-1 text-sm leading-6 text-[#1d271f]/70">
+              {getMarketSummary(product)}
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#e8f4eb] px-3 py-1 text-xs font-semibold text-[#05893e]">
+                <span aria-hidden>{product.categoryIcon}</span>
+                {product.categoryNameBn}
+              </span>
+              <span className="rounded-full bg-[#f0f5f0] px-3 py-1 text-xs font-medium text-[#1d271f]">
+                প্রতি {UNIT_BN[product.unit] ?? product.unit}
+              </span>
+            </div>
           </div>
         </div>
-
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          {getPriceSummary(product).map(({ label, value }) => (
-            <div key={label} className="rounded-2xl bg-[#f0f5f0] p-4">
-              <p className="text-sm text-[#1d271f]/70">{label}</p>
-              <p className="mt-1 text-xl font-bold text-[#1d271f]">
-                {toBn(value)} টাকা
-              </p>
-            </div>
-          ))}
-        </div>
       </section>
+
+      <PriceSummary markets={product.markets} fallbackPrice={product.today} />
 
       <section aria-labelledby="market-prices" className="flex flex-col gap-4">
         <div>
@@ -122,22 +122,15 @@ async function ProductDetailsContent({
   );
 }
 
-function getPriceSummary(product: Product) {
-  const markets = product.markets;
-  const min = markets.length
-    ? Math.min(...markets.map((market) => market.min))
-    : product.today;
-  const max = markets.length
-    ? Math.max(...markets.map((market) => market.max))
-    : product.today;
-  const average = markets.length
-    ? markets.reduce((total, market) => total + (market.min + market.max) / 2, 0) /
-      markets.length
-    : product.today;
+function getMarketSummary(product: Product) {
+  const divisions = [...new Set(product.markets.map((market) => market.division))];
 
-  return [
-    { label: "সর্বনিম্ন দাম", value: min },
-    { label: "সর্বোচ্চ দাম", value: max },
-    { label: "গড় দাম", value: average },
-  ];
+  if (product.markets.length === 0) {
+    return `আজকের বাজারদর ও পরিবর্তনের সারসংক্ষেপ: ${product.nameBn}।`;
+  }
+
+  const divisionSummary = divisions.length
+    ? `${divisions.join(" ও ")} বিভাগের `
+    : "";
+  return `${divisionSummary}${product.markets.length}টি বাজারের আজকের দামের সারসংক্ষেপ।`;
 }
