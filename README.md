@@ -5,7 +5,7 @@
 **প্রয়োজনীয় পণ্যের দাম এক নজরে।**
 Track daily grocery prices across Bangladesh's markets — rice, pulses, oil, vegetables, fish, meat, eggs & spices.
 
-[Live Demo](https://your-app.vercel.app) · [Report a Bug](../../issues)
+[Live Demo]([https://your-app.vercel.app](https://assignment-7-psi-nine.vercel.app/)) ·
 
 </div>
 
