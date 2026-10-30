@@ -7,7 +7,12 @@ import toast from "react-hot-toast";
 import FormField from "@/components/auth/FormField";
 import SocialButtons, { Divider } from "@/components/auth/SocialButtons";
 import { authClient } from "@/lib/auth-client";
-import { authErrorMessage, EMAIL_RE, safeRedirect } from "@/lib/auth-errors";
+import {
+  authErrorMessage,
+  EMAIL_RE,
+  isRateLimitError,
+  safeRedirect,
+} from "@/lib/auth-errors";
 
 type SocialProvider = "google" | "github";
 
@@ -27,7 +32,7 @@ export default function SignInForm({
     const password = String(formData.get("password") ?? "");
 
     if (!EMAIL_RE.test(email) || password.length === 0) {
-      toast.error("সঠিক ইমেইল ও পাসওয়ার্ড দিন।");
+      toast.error("সঠিক ইমেইল ও পাসওয়ার্ড দিন।", { id: "signin-validation" });
       return;
     }
 
@@ -40,16 +45,21 @@ export default function SignInForm({
       });
 
       if (error) {
-        toast.error(authErrorMessage(error));
+        toast.error(authErrorMessage(error), { id: "signin-error" });
         return;
       }
 
-      toast.success("সফলভাবে সাইন ইন হয়েছে।");
+      toast.success("সফলভাবে সাইন ইন হয়েছে।", { id: "signin-success" });
       router.replace(safeRedirect(searchParams.get("redirect")));
       router.refresh();
     } catch (error) {
       console.error("Sign-in request failed", error);
-      toast.error("সাইন ইন করা যায়নি। আবার চেষ্টা করুন।");
+      toast.error(
+        isRateLimitError(error)
+          ? authErrorMessage({ status: 429 })
+          : "সাইন ইন করা যায়নি। আবার চেষ্টা করুন।",
+        { id: "signin-error" },
+      );
     } finally {
       setPending(false);
     }

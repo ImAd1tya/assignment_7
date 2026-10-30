@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import FormField from "@/components/auth/FormField";
 import SocialButtons, { Divider } from "@/components/auth/SocialButtons";
 import { authClient } from "@/lib/auth-client";
-import { authErrorMessage, EMAIL_RE } from "@/lib/auth-errors";
+import { authErrorMessage, EMAIL_RE, isRateLimitError } from "@/lib/auth-errors";
 
 type SocialProvider = "google" | "github";
 
@@ -27,7 +27,9 @@ export default function SignUpForm({
     const password = String(formData.get("password") ?? "");
 
     if (name.length === 0 || !EMAIL_RE.test(email) || password.length < 8) {
-      toast.error("নাম, সঠিক ইমেইল এবং কমপক্ষে ৮ অক্ষরের পাসওয়ার্ড দিন।");
+      toast.error("নাম, সঠিক ইমেইল এবং কমপক্ষে ৮ অক্ষরের পাসওয়ার্ড দিন।", {
+        id: "signup-validation",
+      });
       return;
     }
 
@@ -41,15 +43,22 @@ export default function SignUpForm({
       });
 
       if (error) {
-        toast.error(authErrorMessage(error));
+        toast.error(authErrorMessage(error), { id: "signup-error" });
         return;
       }
 
-      toast.success("অ্যাকাউন্ট তৈরি হয়েছে। এখন সাইন ইন করুন।");
+      toast.success("অ্যাকাউন্ট তৈরি হয়েছে। এখন সাইন ইন করুন।", {
+        id: "signup-success",
+      });
       router.push("/signin");
     } catch (error) {
       console.error("Sign-up request failed", error);
-      toast.error("অ্যাকাউন্ট তৈরি করা যায়নি। আবার চেষ্টা করুন।");
+      toast.error(
+        isRateLimitError(error)
+          ? authErrorMessage({ status: 429 })
+          : "অ্যাকাউন্ট তৈরি করা যায়নি। আবার চেষ্টা করুন।",
+        { id: "signup-error" },
+      );
     } finally {
       setPending(false);
     }

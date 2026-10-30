@@ -30,6 +30,11 @@ const socialProviders = {
 export const auth = betterAuth({
   secret,
   baseURL: process.env.BETTER_AUTH_URL,
+  advanced: {
+    ipAddress: {
+      ipAddressHeaders: ["x-vercel-forwarded-for", "x-real-ip"],
+    },
+  },
   database: mongodbAdapter(db),
   emailAndPassword: {
     enabled: true,

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { authClient } from "@/lib/auth-client";
+import { authErrorMessage, isRateLimitError } from "@/lib/auth-errors";
 
 export type SocialProvider = "google" | "github";
 
@@ -42,10 +43,19 @@ export default function SocialButtons({
         callbackURL: `${callback.pathname}${callback.search}${callback.hash}`,
       });
       if (!error) return;
-      toast.error("সোশ্যাল লগইন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।");
+      toast.error(
+        authErrorMessage(error) ||
+          "সোশ্যাল লগইন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।",
+        { id: "social-auth-error" },
+      );
     } catch (error) {
       console.error("Social sign-in request failed", error);
-      toast.error("সোশ্যাল লগইন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।");
+      toast.error(
+        isRateLimitError(error)
+          ? authErrorMessage({ status: 429 })
+          : "সোশ্যাল লগইন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।",
+        { id: "social-auth-error" },
+      );
     } finally {
       setPending(null);
     }
