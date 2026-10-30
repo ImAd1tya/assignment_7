@@ -1,42 +1,30 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProducts } from "@/lib/api";
+import { getProductBySlug } from "@/lib/api";
 import { toBn, UNIT_BN } from "@/lib/format";
 import PriceSummary from "@/components/product/PriceSummary";
 import type { Product } from "@/types/bazardor";
 
-export async function generateStaticParams() {
-  const products = await getProducts();
-  return products.map((product) => ({ slug: product.slug }));
-}
-
-export default function ProductDetails({
+export default function ProductPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   return (
-    <Suspense
-      fallback={
-        <main className="mx-auto w-full max-w-6xl px-4 py-10" aria-busy="true">
-          <div className="h-40 animate-pulse rounded-3xl bg-[#f0f5f0]" />
-        </main>
-      }
-    >
-      <ProductDetailsContent params={params} />
+    <Suspense fallback={<ProductLoading />}>
+      <ProductContent params={params} />
     </Suspense>
   );
 }
 
-async function ProductDetailsContent({
+async function ProductContent({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const products = await getProducts();
-  const product = products.find((item) => item.slug === slug);
+  const product = await getProductBySlug(slug);
 
   if (!product) notFound();
 
@@ -118,6 +106,20 @@ async function ProductDetailsContent({
           </p>
         )}
       </section>
+    </main>
+  );
+}
+
+function ProductLoading() {
+  return (
+    <main
+      className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:py-10"
+      aria-busy="true"
+      aria-label="পণ্যের তথ্য লোড হচ্ছে"
+    >
+      <div className="h-7 w-36 animate-pulse rounded bg-[#e1e8e1]" />
+      <div className="h-40 animate-pulse rounded-3xl bg-[#e1e8e1]" />
+      <div className="h-32 animate-pulse rounded-2xl bg-[#e1e8e1]" />
     </main>
   );
 }

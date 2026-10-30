@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-
-
-const API = "https://api.api-store.workers.dev/api/bazardor";
+import { toast } from "react-hot-toast";
+import { authClient } from "@/lib/auth-client";
+import { API } from "@/lib/api";
 
 export type Category = { id: string; slug: string; nameBn: string; icon: string };
 
@@ -57,26 +57,44 @@ const getServerDateSnapshot = () => "";
 function useBazardorData() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     const ctrl = new AbortController();
+    let active = true;
+    const timeout = window.setTimeout(() => ctrl.abort(), 10_000);
     (async () => {
       try {
         const [c, p] = await Promise.all([
-          fetch(`${API}/categories`, { signal: ctrl.signal }).then((r) => r.json()),
-          fetch(`${API}/products`, { signal: ctrl.signal }).then((r) => r.json()),
+          fetch(`${API}/categories`, { signal: ctrl.signal }),
+          fetch(`${API}/products`, { signal: ctrl.signal }),
         ]);
-        setCategories(c);
-        setProducts(p);
-      } catch (e) {
-        if ((e as Error).name !== "AbortError") setError(true);
+        if (!c.ok || !p.ok) {
+          throw new Error(`Market data request failed (${c.status}, ${p.status})`);
+        }
+        const [categoryData, productData] = await Promise.all([c.json(), p.json()]);
+        if (!Array.isArray(categoryData) || !Array.isArray(productData)) {
+          throw new Error("Market data response must contain category and product arrays");
+        }
+        if (active) {
+          setCategories(categoryData);
+          setProducts(productData);
+        }
+      } catch {
+        if (active) setError(true);
+      } finally {
+        if (active) setLoading(false);
       }
     })();
-    return () => ctrl.abort();
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+      ctrl.abort();
+    };
   }, []);
 
-  return { categories, products, error };
+  return { categories, products, loading, error };
 }
 
 
@@ -90,7 +108,16 @@ export default function Navbar({
   onSignOut?: () => void;
 }) {
   const pathname = usePathname();
-  const { categories, products, error } = useBazardorData();
+  const { data: session } = authClient.useSession();
+  const sessionUser = session?.user
+    ? {
+        name: session.user.name,
+        email: session.user.email,
+        avatarUrl: session.user.image ?? undefined,
+      }
+    : null;
+  const activeUser = user ?? sessionUser;
+  const { categories, products, loading, error } = useBazardorData();
 
   const date = useSyncExternalStore(
     subscribeToDate,
@@ -116,6 +143,26 @@ export default function Navbar({
 
   const active = categories.find((c) => pathname.startsWith(`/category/${c.slug}`))?.slug;
 
+  async function handleSignOut() {
+    setMenuOpen(false);
+    if (onSignOut) {
+      onSignOut();
+      return;
+    }
+
+    try {
+      const { error: signOutError } = await authClient.signOut();
+      if (signOutError) {
+        toast.error("সাইন আউট করা যায়নি। আবার চেষ্টা করুন।");
+        return;
+      }
+      toast.success("সফলভাবে সাইন আউট হয়েছে।");
+    } catch (error) {
+      console.error("Sign-out request failed", error);
+      toast.error("সাইন আউট করা যায়নি। আবার চেষ্টা করুন।");
+    }
+  }
+
   return (
     <div className="sticky top-0 z-50">
       <style>{`
@@ -140,7 +187,7 @@ export default function Navbar({
           </Link>
 
           <div className="ml-auto flex items-center gap-2">
-            {user ? (
+            {activeUser ? (
               <div className="relative" ref={menuRef}>
                 <button
                   type="button"
@@ -149,9 +196,9 @@ export default function Navbar({
                   aria-expanded={menuOpen}
                   className="flex h-10 items-center gap-2 rounded-lg px-[17px] hover:bg-[#f0f5f0]"
                 >
-                  {user.avatarUrl ? (
+                  {activeUser.avatarUrl ? (
                     <Image
-                      src={user.avatarUrl}
+                      src={activeUser.avatarUrl}
                       alt=""
                       width={36}
                       height={36}
@@ -160,10 +207,10 @@ export default function Navbar({
                     />
                   ) : (
                     <span className="flex h-9 w-9 items-center justify-center rounded-[10.5px] bg-[#05893e] text-sm font-semibold text-[#f3fbf4]">
-                      {user.name.charAt(0).toUpperCase()}
+                      {activeUser.name.charAt(0).toUpperCase()}
                     </span>
                   )}
-                  <span className="hidden text-sm font-medium text-[#1d271f] sm:inline">{user.name}</span>
+                  <span className="hidden text-sm font-medium text-[#1d271f] sm:inline">{activeUser.name}</span>
                   <span aria-hidden className="text-xs font-semibold text-[#1d271f]">▾</span>
                 </button>
 
@@ -173,8 +220,8 @@ export default function Navbar({
                     className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-[#e1e8e1] bg-[#fafcfa] p-[9px] shadow-lg"
                   >
                     <div className="px-3 py-2">
-                      <p className="text-sm font-semibold text-[#1d271f]">{user.name}</p>
-                      {user.email && <p className="text-xs text-[#1d271f]/70">{user.email}</p>}
+                      <p className="text-sm font-semibold text-[#1d271f]">{activeUser.name}</p>
+                      {activeUser.email && <p className="text-xs text-[#1d271f]/70">{activeUser.email}</p>}
                     </div>
                     <Link
                       href="/profile"
@@ -187,10 +234,7 @@ export default function Navbar({
                     <button
                       type="button"
                       role="menuitem"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        onSignOut?.();
-                      }}
+                      onClick={() => void handleSignOut()}
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm text-[#1d271f] hover:bg-[#f0f5f0]"
                     >
                       <span aria-hidden>↩</span> সাইন আউট
@@ -201,13 +245,13 @@ export default function Navbar({
             ) : (
               <>
                 <Link
-                  href="/sign-in"
+                  href="/signin"
                   className="inline-flex h-8 items-center rounded-lg px-[13px] text-xs font-semibold text-[#1d271f] hover:bg-[#f0f5f0] sm:h-10 sm:px-[17px] sm:text-sm"
                 >
                   সাইন ইন
                 </Link>
                 <Link
-                  href="/sign-up"
+                  href="/signup"
                   className="inline-flex h-8 items-center rounded-lg border border-[#047f39] bg-[#05893e] px-[13px] text-xs font-semibold text-[#f3fbf4] hover:bg-[#047f39] sm:h-10 sm:px-[17px] sm:text-sm"
                 >
                   সাইন আপ
@@ -220,12 +264,18 @@ export default function Navbar({
         <nav aria-label="ক্যাটাগরি" className="border-t border-[#f0f5f0]">
           <div className="mx-auto max-w-6xl px-4">
             <ul className="flex min-h-12 items-center gap-1 overflow-x-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {categories.length === 0 && !error
+              {loading
                 ? Array.from({ length: 8 }).map((_, i) => (
                     <li key={i} className="shrink-0">
                       <span className="block h-8 w-[72px] animate-pulse rounded-lg bg-[#f0f5f0]" />
                     </li>
                   ))
+                : error && categories.length === 0
+                  ? (
+                    <li role="status" className="px-3 text-xs text-[#1d271f]/70">
+                      ক্যাটাগরি লোড করা যায়নি।
+                    </li>
+                  )
                 : categories.map((c) => {
                     const isActive = active === c.slug;
                     return (
