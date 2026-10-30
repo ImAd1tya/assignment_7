@@ -89,6 +89,4 @@ src/
 3. In MongoDB Atlas → Network Access, allow Vercel's IPs (`0.0.0.0/0` is the simple option).
 4. Dynamic routes (`/category/[slug]`, `/product/[slug]`) are server-rendered, so refreshing any page works.
 
-## 📄 License
 
-MIT
